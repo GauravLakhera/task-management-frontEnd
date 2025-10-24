@@ -4,9 +4,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { DashboardSelector } from './selector';
 import { getProjectList } from '@/store/redux/slices/dashboards';
 import CreateProjectModal from '@/components/dashboard/CreateProjectModal';
-import { ProjectCard } from '@/components/Dashboard/ProjectCard';
-import { DashboardStats } from '@/components/Dashboard/DashboardStats';
-import { DashboardEmptyState } from '@/components/Dashboard/EmptyState';
+import { ProjectCard } from '@/components/dashboard/ProjectCard';
+import { DashboardStats } from '@/components/dashboard/DashboardStats';
+import { DashboardEmptyState } from '@/components/dashboard/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {

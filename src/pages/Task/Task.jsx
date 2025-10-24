@@ -3,10 +3,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getIssueList } from '@/store/redux/slices/issue';
 import { IssueSelector } from './selector';
 import { useDebounce } from '@/hooks/useDebounce';
-import { TaskFilters } from '@/components/TaskBoard/TaskFilters';
-import { TaskColumn } from '@/components/TaskBoard/TaskColumn';
-import { TaskDetailDialog } from '@/components/TaskBoard/TaskDetailDialog';
-import { EmptyState } from '@/components/TaskBoard/EmptyState';
+import { TaskFilters } from '@/components/taskBoard/TaskFilters';
+import { TaskColumn } from '@/components/taskBoard/TaskColumn';
+import { TaskDetailDialog } from '@/components/taskBoard/TaskDetailDialog';
+import { EmptyState } from '@/components/taskBoard/EmptyState';
 import { Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
