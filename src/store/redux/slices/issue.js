@@ -6,20 +6,28 @@ export const getIssueList = createAsyncThunk(
   'data/issues',
   async (payload, thunkAPI) => {
     try {
-      // payload can contain projectId and filters
       const { projectId, filters } = payload || {};
 
-      // Build query params
-      let query = '';
-      if (projectId) query += `projectId=${projectId}`;
+      // Build query params efficiently
+      const params = new URLSearchParams();
+      
+      if (projectId) {
+        params.append('projectId', projectId);
+      }
+      
       if (filters) {
-        Object.keys(filters).forEach((key) => {
-          query += `${query ? '&' : ''}${key}=${filters[key]}`;
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) {
+            params.append(key, value);
+          }
         });
       }
 
-      const response = await api.get(`${apiKeys.issueList}?${query}`);
-      return response.data; // This will go into the reducer as payload
+      const queryString = params.toString();
+      const url = queryString ? `${apiKeys.issueList}?${queryString}` : apiKeys.issueList;
+      
+      const response = await api.get(url);
+      return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data || error.message);
     }
@@ -33,18 +41,25 @@ const initialState = {
 };
 
 export const issueSlice = createSlice({
-  name: 'project',
+  name: 'issue',
   initialState,
-  reducers: {},
+  reducers: {
+    clearIssueList: (state) => {
+      state.issueList = [];
+      state.error = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
       .addCase(getIssueList.pending, (state) => {
         state.loading = true;
-        state.issueList = [];
+        state.error = null;
+        // Don't clear issueList here to avoid flickering
       })
       .addCase(getIssueList.fulfilled, (state, action) => {
         state.loading = false;
-        state.issueList = action?.payload?.data || {};
+        state.issueList = action?.payload?.data || [];
+        state.error = null;
       })
       .addCase(getIssueList.rejected, (state, action) => {
         state.loading = false;
@@ -54,4 +69,5 @@ export const issueSlice = createSlice({
   }
 });
 
+export const { clearIssueList } = issueSlice.actions;
 export default issueSlice.reducer;

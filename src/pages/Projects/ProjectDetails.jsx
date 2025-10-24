@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { ProjectSelector } from './selector';
 import { getProjectDetails } from '@/store/redux/slices/project';
 import AddMembers from './AddMembers';
+import { CircleFadingArrowUpIcon, UserCheck } from 'lucide-react';
 
 const ProjectDetails = () => {
   const { projectId } = useParams();
@@ -103,20 +104,27 @@ const ProjectDetails = () => {
 
         {/* Action Buttons */}
         <div className='flex gap-3'>
-          <Button onClick={() => setTaskModalOpen(true)}>Create Task</Button>
           <Button
             className={`cursor-pointer`}
-            onClick={() => setAddMemberOpen(true)}
-            variant='secondary'
+            onClick={() => setTaskModalOpen(true)}
           >
-            Add Member
+            Create Task
+          </Button>
+          <Button
+            variant='outline'
+            size='sm'
+            className={`cursor-pointer`}
+            onClick={() => setAddMemberOpen(true)}
+          >
+            <UserCheck /> Add Members
           </Button>
           {/* See Tasks Button */}
           <Button
+            className={`cursor-pointer`}
             variant='outline'
-            onClick={() => navigate(`/task`)}
+            onClick={() => navigate(`/project/${projectId}/task`)}
           >
-            See Tasks
+            <CircleFadingArrowUpIcon /> See Tasks
           </Button>
         </div>
 

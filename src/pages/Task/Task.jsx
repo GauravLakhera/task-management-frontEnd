@@ -1,60 +1,86 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { IssueSelector } from './selector';
 import { getIssueList } from '@/store/redux/slices/issue';
-import { toast } from 'react-hot-toast';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../../components/ui/dialog';
+import { IssueSelector } from './selector';
+import { useDebounce } from '@/hooks/useDebounce';
+import { TaskFilters } from '@/components/TaskBoard/TaskFilters';
+import { TaskColumn } from '@/components/TaskBoard/TaskColumn';
+import { TaskDetailDialog } from '@/components/TaskBoard/TaskDetailDialog';
+import { EmptyState } from '@/components/TaskBoard/EmptyState';
+import { Loader2 } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+
+// Stage template
+export const FULL_STAGE_TEMPLATE = [
+  { name: 'Backlog', category: 'open', order: 5 },
+  { name: 'To Do', category: 'open', order: 10, isDefault: true },
+  { name: 'Selected', category: 'open', order: 20 },
+  { name: 'In Progress', category: 'in-progress', order: 30 },
+  { name: 'In Review', category: 'in-progress', order: 40 },
+  { name: 'QA Testing', category: 'in-progress', order: 50 },
+  { name: 'UAT', category: 'in-progress', order: 60 },
+  { name: 'Reopened', category: 'open', order: 65 },
+  { name: 'Blocked', category: 'in-progress', order: 70 },
+  { name: 'Done', category: 'closed', order: 80 }
+];
 
 const Task = () => {
   const dispatch = useDispatch();
+  const { projectId } = useParams();
   const selector = IssueSelector();
   const { loading, issueList } = useSelector(selector);
 
-  const [tasksByStage, setTasksByStage] = useState({});
   const [selectedTask, setSelectedTask] = useState(null);
-
-  // Filters state
   const [filters, setFilters] = useState({
     search: '',
-    type: '',
-    priority: '',
-    stage: '',
-    assignee: '',
-    dueDate: ''
+    type: 'all',
+    priority: 'all',
+    stage: 'all',
+    dueDate: 'all'
   });
 
-  const projectId = localStorage.getItem('project');
+  const debouncedSearch = useDebounce(filters.search, 500);
 
-  // Fetch tasks with filters
+  // Fetch tasks when filters change
   useEffect(() => {
-    if (projectId) {
-      dispatch(getIssueList({ projectId, filters }));
-    }
-  }, [dispatch, projectId, filters]);
+    if (!projectId) return;
+
+    const apiFilters = {};
+    if (debouncedSearch) apiFilters.search = debouncedSearch;
+    if (filters.type !== 'all') apiFilters.type = filters.type;
+    if (filters.priority !== 'all') apiFilters.priority = filters.priority;
+    if (filters.stage !== 'all') apiFilters.stage = filters.stage;
+    if (filters.dueDate !== 'all') apiFilters.dueDate = filters.dueDate;
+
+    dispatch(getIssueList({ projectId, filters: apiFilters }));
+  }, [
+    dispatch,
+    projectId,
+    debouncedSearch,
+    filters.type,
+    filters.priority,
+    filters.stage,
+    filters.dueDate
+  ]);
 
   // Group tasks by stage
-  useEffect(() => {
-    const stages = {};
+  const tasksByStage = useMemo(() => {
+    const grouped = {};
     issueList?.forEach((task) => {
       const stageName = task.stage?.name || 'Unassigned';
-      if (!stages[stageName]) stages[stageName] = [];
-      stages[stageName].push(task);
+      if (!grouped[stageName]) grouped[stageName] = [];
+      grouped[stageName].push(task);
     });
-    setTasksByStage(stages);
+    return grouped;
   }, [issueList]);
+
+  // Map tasks to FULL_STAGE_TEMPLATE order and filter empty stages
+  const orderedStages = useMemo(() => {
+    return FULL_STAGE_TEMPLATE.map((stage) => ({
+      name: stage.name,
+      tasks: tasksByStage[stage.name] || []
+    })).filter((stage) => stage.tasks.length > 0); // only stages with tasks
+  }, [tasksByStage]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -63,251 +89,73 @@ const Task = () => {
   const clearFilters = () => {
     setFilters({
       search: '',
-      type: '',
-      priority: '',
-      stage: '',
-      assignee: '',
-      dueDate: ''
+      type: 'all',
+      priority: 'all',
+      stage: 'all',
+      dueDate: 'all'
     });
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => value !== '');
+  const hasActiveFilters = Object.entries(filters).some(
+    ([key, value]) => value !== '' && value !== 'all'
+  );
 
-  if (loading) return <p className="p-6 text-center">Loading tasks...</p>;
+  if (!projectId) {
+    return (
+      <div className='flex items-center justify-center h-screen'>
+        <p className='text-gray-600 dark:text-gray-400'>Invalid project ID</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-6">
-      <h1 className="text-2xl md:text-3xl font-bold mb-6 text-center md:text-left">
-        Tasks Board
-      </h1>
+    <div className='min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-6 md:w-11/12 mx-auto'>
+      <div className='max-w-[1600px] mx-auto'>
+        <div className='mb-6'>
+          <h1 className='text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2'>
+            Task Board
+          </h1>
+          <p className='text-gray-600 dark:text-gray-400'>
+            Manage and track your project tasks
+          </p>
+        </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        {/* Search */}
-        <input
-          type="text"
-          placeholder="Search by title/description"
-          value={filters.search}
-          onChange={(e) => handleFilterChange('search', e.target.value)}
-          className="border rounded px-3 py-1 focus:outline-none focus:ring focus:ring-blue-200"
+        <TaskFilters
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+          hasActiveFilters={hasActiveFilters}
         />
 
-        {/* Type dropdown */}
-        <select
-          value={filters.type}
-          onChange={(e) => handleFilterChange('type', e.target.value)}
-          className="border rounded px-3 py-1 focus:outline-none focus:ring focus:ring-blue-200"
-        >
-          <option value="">All Types</option>
-          <option value="bug">Bug</option>
-          <option value="feature">Feature</option>
-          <option value="task">Task</option>
-        </select>
-
-        {/* Priority dropdown */}
-        <select
-          value={filters.priority}
-          onChange={(e) => handleFilterChange('priority', e.target.value)}
-          className="border rounded px-3 py-1 focus:outline-none focus:ring focus:ring-blue-200"
-        >
-          <option value="">All Priorities</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-
-        {/* Stage dropdown */}
-        <select
-          value={filters.stage}
-          onChange={(e) => handleFilterChange('stage', e.target.value)}
-          className="border rounded px-3 py-1 focus:outline-none focus:ring focus:ring-blue-200"
-        >
-          <option value="">All Stages</option>
-          <option value="backlog">Backlog</option>
-          <option value="in-progress">In Progress</option>
-          <option value="done">Done</option>
-        </select>
-
-        {/* Due Date dropdown */}
-        <select
-          value={filters.dueDate}
-          onChange={(e) => handleFilterChange('dueDate', e.target.value)}
-          className="border rounded px-3 py-1 focus:outline-none focus:ring focus:ring-blue-200"
-        >
-          <option value="">All Due Dates</option>
-          <option value="today">Today</option>
-          <option value="thisWeek">This Week</option>
-          <option value="overdue">Overdue</option>
-        </select>
-
-        {/* Clear filters button */}
-        {hasActiveFilters && (
-          <Button 
-            variant="outline" 
-            onClick={clearFilters}
-            className="text-sm"
-          >
-            Clear Filters
-          </Button>
-        )}
-      </div>
-
-      {/* Empty State - No tasks at all */}
-      {!issueList || issueList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4">
-          <div className="text-center max-w-md">
-            <div className="text-6xl mb-4">📋</div>
-            <h3 className="text-xl font-semibold mb-2 text-gray-700 dark:text-gray-300">
-              No Tasks Found
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              {hasActiveFilters 
-                ? "No tasks match your current filters. Try adjusting your search criteria."
-                : "There are no tasks in this project yet. Create your first task to get started!"}
-            </p>
-            {hasActiveFilters && (
-              <Button onClick={clearFilters} variant="outline">
-                Clear All Filters
-              </Button>
-            )}
+        {loading ? (
+          <div className='flex items-center justify-center py-20'>
+            <Loader2 className='w-8 h-8 animate-spin text-blue-500' />
           </div>
-        </div>
-      ) : (
-        <>
-          {/* Empty State - Tasks exist but board is empty after grouping */}
-          {Object.keys(tasksByStage).length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4">
-              <div className="text-center max-w-md">
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                  No Tasks to Display
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  Tasks are available but none match the current view. Try adjusting your filters.
-                </p>
-                <Button onClick={clearFilters} variant="outline">
-                  Clear All Filters
-                </Button>
-              </div>
-            </div>
-          ) : (
-            /* Tasks Board */
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {Object.keys(tasksByStage).map((stage) => (
-                <div
-                  key={stage}
-                  className="min-w-[260px] md:min-w-[300px] bg-gray-50 dark:bg-gray-900 p-3 rounded-xl flex-shrink-0"
-                >
-                  <h2 className="text-lg font-semibold mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
-                    {stage} ({tasksByStage[stage].length})
-                  </h2>
+        ) : !issueList || issueList.length === 0 ? (
+          <EmptyState
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearFilters}
+            isFiltered={hasActiveFilters}
+          />
+        ) : (
+          <div className='flex gap-4 overflow-x-auto pb-4'>
+            {orderedStages.map(({ name, tasks }) => (
+              <TaskColumn
+                key={name}
+                stage={name}
+                tasks={tasks}
+                onTaskClick={setSelectedTask}
+              />
+            ))}
+          </div>
+        )}
 
-                  <div className="flex flex-col gap-3">
-                    {tasksByStage[stage].map((task) => (
-                      <Card
-                        key={task._id}
-                        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition cursor-pointer"
-                        onClick={() => setSelectedTask(task)}
-                      >
-                        <CardHeader className="p-3 pb-1">
-                          <CardTitle className="text-sm font-semibold line-clamp-1">
-                            {task.title}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-3 pb-3 flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-300">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {task.key}
-                            </span>
-                            <span
-                              className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                task.priority === 'high'
-                                  ? 'bg-red-100 text-red-600'
-                                  : task.priority === 'medium'
-                                  ? 'bg-yellow-100 text-yellow-600'
-                                  : 'bg-green-100 text-green-600'
-                              }`}
-                            >
-                              {task.priority}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 mt-1">
-                            <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                              style={{ backgroundColor: task.assignee?.profileColor || '#999' }}
-                            >
-                              {task.assignee?.firstName?.[0] || '?'}
-                            </div>
-                            <span className="truncate">
-                              {task.assignee?.firstName || 'Unassigned'}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Task Detail Dialog */}
-      {selectedTask && (
-        <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Task Details</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-3 mt-2 text-sm text-gray-700 dark:text-gray-300">
-              <p>
-                <strong>Title:</strong> {selectedTask.title}
-              </p>
-              <p>
-                <strong>Key:</strong> {selectedTask.key}
-              </p>
-              <p>
-                <strong>Type:</strong> {selectedTask.type}
-              </p>
-              <p>
-                <strong>Priority:</strong>{' '}
-                <span
-                  className={`capitalize px-2 py-1 rounded-full ${
-                    selectedTask.priority === 'high'
-                      ? 'bg-red-100 text-red-600'
-                      : selectedTask.priority === 'medium'
-                      ? 'bg-yellow-100 text-yellow-600'
-                      : 'bg-green-100 text-green-600'
-                  }`}
-                >
-                  {selectedTask.priority}
-                </span>
-              </p>
-              <p>
-                <strong>Assignee:</strong> {selectedTask.assignee?.firstName || '—'}
-              </p>
-              <p>
-                <strong>Stage:</strong> {selectedTask.stage?.name || '—'}
-              </p>
-              <p>
-                <strong>Original Estimate:</strong> {selectedTask.originalEstimate}h
-              </p>
-              <p>
-                <strong>Remaining Estimate:</strong> {selectedTask.remainingEstimate}h
-              </p>
-            </div>
-
-            <DialogFooter className="mt-4">
-              <Button variant="outline" onClick={() => setSelectedTask(null)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+        <TaskDetailDialog
+          task={selectedTask}
+          open={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      </div>
     </div>
   );
 };

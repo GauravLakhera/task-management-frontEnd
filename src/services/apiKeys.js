@@ -8,7 +8,11 @@ const apiKeys = {
   // users
   getUser: '/user',
   // issues
-  issueList: '/issue'
+  issueList: '/issue',
+
+  stages:"/stage",
+
+  members:"/member"
 };
 
 export default apiKeys;
