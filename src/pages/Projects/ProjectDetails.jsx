@@ -111,6 +111,13 @@ const ProjectDetails = () => {
           >
             Add Member
           </Button>
+          {/* See Tasks Button */}
+          <Button
+            variant='outline'
+            onClick={() => navigate(`/task`)}
+          >
+            See Tasks
+          </Button>
         </div>
 
         {/* Task Modal */}
