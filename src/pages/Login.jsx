@@ -76,18 +76,10 @@ const Login = () => {
               />
               <span
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500"
+                className="absolute right-3 top-1/2  cursor-pointer text-gray-500"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-primary hover:underline"
-              >
-                Forgot password?
-              </Link>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
